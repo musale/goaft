@@ -1,4 +1,4 @@
-package goaft
+package lib
 
 import (
 	"encoding/json"
@@ -10,29 +10,42 @@ import (
 	"strings"
 )
 
+// AfricastalkingGateway struct
 type AfricastalkingGateway struct {
 	Username string
 	APIKEY   string
-	Dest     string
+	Debug    bool
+	Format   string
 }
 
+// AfricastalkigGatewayInterface with methods
 type AfricastalkigGatewayInterface interface {
 	SendMessage() []APIRecipient
 }
 
+// APIRecipient - number receiving SMS
 type APIRecipient struct {
 	Number    string  `json:"number"`
 	Status    string  `json:"status"`
 	Cost      float64 `json:"cost"`
-	MessageId string  `json:"messageId"`
+	MessageID string  `json:"messageId"`
 }
 
+// ErrorDetail - number receiving SMS
+type ErrorDetail struct {
+	Source string `json:"source"`
+	Status string `json:"status"`
+	Error  error
+}
+
+// MessageData - with msg & list of recipients
 type MessageData struct {
 	Message    string         `json:"message"`
 	Recipients []APIRecipient `json:"recipients"`
 }
 
-func (gateway *AfricastalkingGateway) SendMessage(to, message, senderID string) []APIRecipient {
+// SendMessage method
+func (gateway *AfricastalkingGateway) SendMessage(to, message, senderID string) (*ErrorDetail, []APIRecipient) {
 	client := http.Client{}
 	form := url.Values{}
 	form.Add("username", gateway.Username)
@@ -44,7 +57,7 @@ func (gateway *AfricastalkingGateway) SendMessage(to, message, senderID string) 
 
 	if err != nil {
 		log.Println("Request Error: ", err)
-		return []APIRecipient{}
+		return &ErrorDetail{"CREATE SEND SMS REQ", "Failed", err}, []APIRecipient{}
 	}
 
 	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
@@ -56,7 +69,7 @@ func (gateway *AfricastalkingGateway) SendMessage(to, message, senderID string) 
 
 	if err != nil {
 		log.Println("Do Error: ", err)
-		return []APIRecipient{}
+		return &ErrorDetail{"POST SEND SMS REQ", "Failed", err}, []APIRecipient{}
 	}
 
 	defer resp.Body.Close()
@@ -65,7 +78,7 @@ func (gateway *AfricastalkingGateway) SendMessage(to, message, senderID string) 
 
 	if err != nil {
 		log.Println("readall error: ", err)
-		return []APIRecipient{}
+		return &ErrorDetail{"READ SEND SMS RES", "Failed", err}, []APIRecipient{}
 	}
 
 	retData := make(map[string]MessageData)
@@ -74,10 +87,10 @@ func (gateway *AfricastalkingGateway) SendMessage(to, message, senderID string) 
 
 	if err != nil {
 		log.Println("Marshal Error: ", err)
-		return []APIRecipient{}
+		return &ErrorDetail{"MARSHAL SEND SMS RES", "Failed", err}, []APIRecipient{}
 	}
 
-	return retData["SMSMessageData"].Recipients
+	return nil, retData["SMSMessageData"].Recipients
 }
 
 func getSMSUrl() string {
